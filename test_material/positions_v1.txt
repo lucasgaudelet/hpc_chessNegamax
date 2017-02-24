@@ -1,0 +1,9 @@
+FEN                         | DECISION   | DEPTH | TIME    | REMARKS
+----------------------------+------------+-------+---------+----------------------------
+"7K//k1P/7p w"              | draw       | 5     | 0s      | Réti Endgame study
+"///2kpK/7P w"              | white wins | 8     | 3s      |
+"4k//4K/4P w"               | white wins | 10    | 12s     | un grand classique
+"4k//4K//4P w"              | white wins | 10    | 21s     | un grand classique, revisité
+"/ppp//PPP//7k//7K w"       | white wins | 10    | 1min20  | 
+"4k//4K///4P w"             | white wins | 12    | 22min50 | un grand classique, re-revisité
+"7K//k1P/7p b"              | black wins | 12    | 26min25 | Réti Endgame study, black to move
