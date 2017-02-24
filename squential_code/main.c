@@ -124,5 +124,6 @@ int main(int argc, char **argv)
         
         if (TRANSPOSITION_TABLE)
           free_tt();
+    
 	return 0;
 }
