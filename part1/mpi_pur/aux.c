@@ -733,10 +733,10 @@ int test_draw_or_victory(tree_t *T, result_t *result) {
         /* teste si j'ai gagné */
 	int last_rank = SQUARE(7 * T->side, 0);
 	for (int i = 0; i < 8; i++) {
-		if (T->pieces[last_rank] == PAWN && T->colors[last_rank] == T->side)  {
-                  result->score = MAX_SCORE;
-                  return 1;
-                }
+		if (T->pieces[last_rank] == PAWN && T->colors[last_rank] == T->side) {
+          result->score = MAX_SCORE;
+          return 1;
+        }
 		last_rank += EAST;
 	}
         return 0;

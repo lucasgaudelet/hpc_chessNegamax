@@ -71,7 +71,144 @@ void evaluate(tree_t * T, result_t *result)
 
 
 void master_evaluate(tree_t * T, result_t *result) {
+	/* manque np, result_t function handle, appels MPI */
+	move_t moves[MAX_MOVES];		// legal moves
+	result_t* result_table;			// result table pointers
+	int* result_index;	// result_index[i] stores the index j of moves
+						// corresponding to result_table[i]
+	int* slave_work;	// slave_work[i] stores the index of the move(s) that
+						// slave i is currently working on. 
+    int n_moves;		// number of legal moves
+    
+    int current_work;	// index of the next move to be evaluated
+    int result_nb;		// number of results received in result_table
+    int current_result;	// the index of the next result to analyse 
+    					// in result_table
+    
+    // Initialise les valeurs de result
+    result->score = -MAX_SCORE - 1;
+    result->pv_length = 0;
+    
+	n_moves = generate_legal_moves(T, &moves[0]);
 	
+	if (test_draw_or_victory(T, result))
+          // envoyer end à tous les processus
+	
+	// absence de coups légaux : pat ou mat
+	if (n_moves == 0) {
+      result->score = check(T) ? -MAX_SCORE : CERTAIN_DRAW;
+      // envoyer end à tous les processus
+    }
+    
+    // allocations and initialisations
+	result_table = (result_t*)malloc(n_moves*sizeof(result_t));
+	result_index = (int*)malloc( n_moves*sizeof(int) );
+	slave_work = (int*)malloc( 2*np*sizeof(int) );
+	current_work = current_result = result_nb = 0;
+	
+	if (ALPHA_BETA_PRUNING)
+          sort_moves(T, n_moves, moves);
+
+	for(int i=1; i<np; i++) {
+		// Si on peut envoyer deux taches
+		if( current_work+1 < n_moves ) {
+			// send( moves+current_work, 1, ... )
+			slave_work[2*i+0] = current_work++;
+			// send( moves+current_work, 1, ... )
+			slave_work[2*i+1] = current_work++;
+		}
+		// Si on peut envoyer une tache
+		else if( current_work < n_moves ) {
+			// send( moves+current_work, 1, ... )
+			slave_work[2*i+0] = current_work++;
+			// send end signal
+			// slave_work[2*i+1] = -1;
+		}
+		// Si il n'y a plus rien à faire
+		else {
+			// send end signal
+		}
+	}
+	
+	// tant qu'il y a des taches à accomplir ou que tout n'as pas été analysé
+	while( (current_work < n_moves) ||
+		   ( (result_nb<n_moves) && (current_result<result_nb) ) ) {
+		   
+		// Si resultat reçu   
+		if(  ) {
+			// receive result_table[result_nb]
+			result_index[result_nb++] = slave_work[2*slave_id+0];
+			slave_work[2*slave_id+0] = slave_work[2*slave_id+1]
+			
+			// S'il reste des taches à accomplir
+			if( current_work < n_moves) {
+				// send( moves+current_work, 1, ... )
+				slave_work[2*i+1] = current_work++;
+			}
+			// Sinon...
+			else {
+				// send end signal
+				// slave_work[2*i+1] = -1;
+			}
+		}
+		
+		// Si des resultats peuvent etre analyses
+		else if( current_result<result_nb ) {
+		
+			int child_score = - result_table[current_result].score;
+		
+			if( child_score > result->score ) {
+				result->score = child_score;
+				result->best_move = moves[ result_index[current_result] ];
+				
+				result->pv_length = result_table[current_result].pv_length + 1;
+				
+				for(int j = 0; j < result_table[current_result].pv_length; j++)
+                	result->PV[j+1] = result_table[current_result].PV[j];
+                	
+                result->PV[0] = moves[ result_index[current_result] ];
+			}
+		}
+	}
+	free(result_index);
+	free(slave_work);
+	free(result_table);
+}
+
+
+void slave_evaluate(tree_t * T, result_t *result) {
+	/* manque param mpi (statut, etc...) */
+	result->score = -MAX_SCORE - 1;
+    result->pv_length = 0;
+        
+	move_t move[2];	
+	move = next_move = BAD_MOVE;
+	
+	result_t child_result[2];
+	int i=0;
+	
+	compute_attack_squares(T);
+	
+	// reception de la premiere tache
+	// recv( move+i, 1, int, ...)	
+	
+	// tant qu'il y a des taches à accomplir
+	while( move[i] != BAD_MOVE ) {
+		
+		// reception de la tache suivante pendant le calcul de la premiere
+		// recv( move+(1-i), 1, int, ...) 
+	
+		tree_t child;
+		
+		play_move(T, move[i], &child);				// joue le move
+		evaluate(&child, &child_result[i]);		// evalue recursivement la position
+		
+		// envoi du resultat
+		// send( child_result[i], 1, result_t, ...)		
+		
+		// preparation de l'iteration suivante
+		i = 1-i;
+	}
 }
 
 
@@ -99,23 +236,25 @@ int main(int argc, char **argv)
 	  
 	tree_t root;
         result_t result;
-	        
-	int	rank, np;
+	 
+	/* Initiation of the MPI layer */
+	int	rank, np;	// MPI variables 
 
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &np);
 	
-	/* Creation de la structure de communication */
-	int blocklen[4] = { 1, 1, 1, 128 };
-	MPI_Datatype MPI_RESULT_T;
-    MPI_Datatype type[3] = { MPI_INT, MPI_INT, MPI_INT, MPI_INT };
-    
-	MPI_Aint displacement[4];
+	// creating MPI function handle for result_t struct
+	MPI_Datatype MPI_RESULT_T;			// new type function handle
+	int count = 4;						// number of block
+	int blocklen[4] = { 1, 1, 1, 128 };	// block length
+    MPI_Datatype type[3] = { MPI_INT, MPI_INT, MPI_INT, MPI_INT }; // block type
+	MPI_Aint displacement[4];	// block displacement
 	displacement[0] = &result.score - &result;
 	displacement[1] = &result.best_move - &result;
 	displacement[2] = &result.pv_length - &result;
 	displacement[3] = &result.PV - &result;
+	
 	MPI_Type_create_struct(4, blocklen, displacement, type, &MPI_RESULT_T);
 	MPI_Type_commit(&MPI_RESULT_T);
 	
