@@ -1,12 +1,14 @@
-
-void slave_evaluate(tree_t * T, result_t *result) {
+void slave_evaluate(tree_t * T, result_t *result)
+{
 
 	/*  Parametres MPI */
 	MPI_Datatype	MPI_RESULT_T;	// result_t function handle
 	MPI_Status		status;
-	MPI_request		req;
+	MPI_Request		req;
 	int 			flag;
+	int 			rank;
 	
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
 	
 	/* Parametres de calcul */
@@ -15,8 +17,8 @@ void slave_evaluate(tree_t * T, result_t *result) {
 	compute_attack_squares(T);
 	
 	// reception de la premiere tache
-	// recv( move, 1, int, ...)	
 	MPI_Recv( &move, 1, MPI_INT, ROOT, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	printf("[%d] reception move\n",rank);
 	
 	// tant qu'il y a des taches à accomplir
 	while( move != BAD_MOVE ) {
@@ -31,9 +33,12 @@ void slave_evaluate(tree_t * T, result_t *result) {
 		
 		// envoi du resultat
 		MPI_Send( &child_result, 1, MPI_RESULT_T, ROOT, TAG_RESULT, MPI_COMM_WORLD);
+		printf("[%d] envoi du résultat\n",rank);
 		
 		// reception du move suivant à analyser
 		MPI_Recv( &move, 1, MPI_INT, ROOT, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		printf("[%d] reception move\n",rank);
 	}
+	printf("[%d] out\n",rank);
 	return ;
 }

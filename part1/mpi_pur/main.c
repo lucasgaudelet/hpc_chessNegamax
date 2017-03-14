@@ -52,7 +52,9 @@ int main(int argc, char **argv)
 
 	/* Initiation of the MPI layer */
 	MPI_Init(&argc, &argv);
-
+	
+	int rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
 	if (argc < 2) {
 		printf("usage: %s \"4k//4K/4P w\" (or any position in FEN)\n", argv[0]);
@@ -71,16 +73,18 @@ int main(int argc, char **argv)
 	print_position(&root);
 
 	decide(&root, &result);
+	
+	if( !rank ) {
+		printf("\nDécision de la position: ");
+		switch(result.score * (2*root.side - 1)) {
+			case MAX_SCORE: printf("blanc gagne\n"); break;
+			case CERTAIN_DRAW: printf("partie nulle\n"); break;
+			case -MAX_SCORE: printf("noir gagne\n"); break;
+			default: printf("BUG\n");
+		}
 
-	printf("\nDécision de la position: ");
-	switch(result.score * (2*root.side - 1)) {
-		case MAX_SCORE: printf("blanc gagne\n"); break;
-		case CERTAIN_DRAW: printf("partie nulle\n"); break;
-		case -MAX_SCORE: printf("noir gagne\n"); break;
-		default: printf("BUG\n");
+		printf("Node searched: %llu\n", node_searched);
 	}
-
-	printf("Node searched: %llu\n", node_searched);
 
 	if (TRANSPOSITION_TABLE)
 		free_tt();

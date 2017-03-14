@@ -1,3 +1,6 @@
+#ifndef _PROJET_
+#define	_PROJET_
+
 #define _POSIX_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
@@ -137,3 +140,5 @@ void free_tt();
 
 /* affiche la variation principale et la position résultante */
 void print_pv(tree_t *T, result_t *result);
+
+#endif

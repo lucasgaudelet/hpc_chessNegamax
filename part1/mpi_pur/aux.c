@@ -44,7 +44,9 @@ unsigned long long int tt_probe, tt_hit, tt_partial;
 
 #define PAWN_ATTACKS(side,sq) (T->attack[sq]&(2*(1+15*(side) ) ) )
 #define KING_ATTACKS(side,sq) (T->attack[sq]&(1*(1+15*(side) ) ) )
+#ifndef BAD_MOVE
 #define BAD_MOVE 0xdead
+#endif
 
 // #define FINALIZE(x) ((x==CERTAIN_DRAW) ?CERTAIN_DRAW:((x> 0) ?x-1:x+1) )
 #define ENQUEUE_MOVE(target) {if(VALID(target) ) moves[n_moves++]= MOVE(sq,target) ;};

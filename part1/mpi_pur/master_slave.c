@@ -6,17 +6,21 @@ void create_mpi_result_t(MPI_Datatype* MPI_RESULT_T)
 	
 	int count = 4;							// number of blocks
 
-	int blocklen[4] = { 1, 1, 1, 128 };		// block length
+	int blocklen[] = { 1, 1, 1, 128 };		// block length
 	
-    MPI_Datatype type[3] = 					// block type
+    MPI_Datatype type[] = 					// block type
     	{MPI_INT,MPI_INT,MPI_INT,MPI_INT};
     
 	MPI_Aint displacement[4];	// block displacement
-		result_t result;
+		/*result_t result;
 		displacement[0] = &result.score - &result;
 		displacement[1] = &result.best_move - &result;
 		displacement[2] = &result.pv_length - &result;
-		displacement[3] = &result.PV - &result;
+		displacement[3] = &result.PV - &result;*/
+		displacement[0] = offsetof(result_t, score);
+		displacement[1] = offsetof(result_t, best_move);
+		displacement[2] = offsetof(result_t, pv_length);
+		displacement[3] = offsetof(result_t, PV);
 	
 	/* MPI calls */
 	MPI_Type_create_struct(count, blocklen, displacement, type, MPI_RESULT_T);
@@ -24,7 +28,7 @@ void create_mpi_result_t(MPI_Datatype* MPI_RESULT_T)
 }
 
 void broadcast_end(int np) {
-	int buf = 0xdead;
+	int buf = BAD_MOVE;
 	for( int i=1; i<np; i++) {
 		MPI_Send( &buf, 1, MPI_INT, i, TAG_END, MPI_COMM_WORLD); 
 	}
@@ -100,9 +104,9 @@ void master_evaluate(tree_t * T, result_t *result)
 	/*  Parametres MPI */
 	MPI_Datatype	MPI_RESULT_T;	// result_t function handle
 	MPI_Status		status;
-	MPI_request		req;
+	MPI_Request		req;
 	int np, flag;
-	bool waiting_result=false;
+	int waiting_result=0;
 	
 	create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
 	MPI_Comm_size(MPI_COMM_WORLD, &np);	// recuperation du nombre de processus
@@ -125,21 +129,23 @@ void master_evaluate(tree_t * T, result_t *result)
 	int* slave_work;	// slave_work[i] est l'index j du coup moves[j] sur
 						// lequel l'esclave de rank i travaille 
 	
-    /* Initialise les valeurs de result */
+    /* Initialise les valeurs de result et incremente node_searched */
+    node_searched++;
     result->score = -MAX_SCORE - 1;
     result->pv_length = 0;
     
-	n_moves = generate_legal_moves(T, &moves[0]);
-	
-	if (test_draw_or_victory(T, result)) {
-		broadcast_end(int np);
+    if (test_draw_or_victory(T, result)) {
+		broadcast_end(np);
 		return;
     }
+    
+	n_moves = generate_legal_moves(T, &moves[0]);
+	printf("[ROOT] n_moves: %d\n", n_moves);
 	
 	/* absence de coups légaux : pat ou mat */
 	if (n_moves == 0) {
 		result->score = check(T) ? -MAX_SCORE : CERTAIN_DRAW;
-		broadcast_end(int np);
+		broadcast_end(np);
 		return;
 	}
     
@@ -155,13 +161,15 @@ void master_evaluate(tree_t * T, result_t *result)
 	for(int i=1; i<np; i++) {
 		
 		if( current_work < n_moves ) {	// Si il reste une tache a accomplir
-			MPI_Isend( moves+current_work, 1, MPI_INT, i, TAG_TASK, MPI_COMM_WORLD );
+			MPI_Isend( moves+current_work, 1, MPI_INT, i, TAG_TASK, MPI_COMM_WORLD, &req);
 			slave_work[i] = current_work++;
+			printf("[ROOT] envoi du move %d à [%d]\n", slave_work[i], i);
 		}
 		
 		else {
-			int buf = 0xdead;
-			MPI_Isend( &buf, 1, MPI_INT, i, TAG_END, MPI_COMM_WORLD);
+			int buf = BAD_MOVE;
+			MPI_Isend( &buf, 1, MPI_INT, i, TAG_END, MPI_COMM_WORLD, &req);
+			printf("[ROOT] envoi de fin à [%d]\n", i);
 		}
 	}
 	
@@ -173,31 +181,38 @@ void master_evaluate(tree_t * T, result_t *result)
 		
 		// Si on attends encore des résultats, reception
 		if( !waiting_result && (result_nb<n_moves) ) {
-			MPI_Irecv( result_table+nb_result, 1, MPI_RESULT_T, MPI_ANY_SOURCE, TAG_RESULT, MPI_COMM_WORLD, &req);
-			waiting_result=true;
+			MPI_Irecv( result_table+result_nb, 1, MPI_RESULT_T, MPI_ANY_SOURCE, TAG_RESULT, MPI_COMM_WORLD, &req);
+			printf("[ROOT] attente de reception\n");
+			waiting_result=1;
+			flag = 0;
 		}
 		
-		MPI_Test(&req, &flag, &status)
+		MPI_Test(&req, &flag, &status);
 		
 		// Si resultat reçu   
-		if( flag ) {
+		if( flag && (result_nb<n_moves) ) {
+			printf("[ROOT] result %d received from %d\n", slave_work[status.MPI_SOURCE], status.MPI_SOURCE);
+
 			result_index[result_nb++] = slave_work[status.MPI_SOURCE];
 			
 			// S'il reste des taches à accomplir
 			if( current_work < n_moves) {
-				MPI_Isend( moves+current_work, 1, MPI_INT, status.MPI_SOURCE, TAG_TASK, MPI_COMM_WORLD );
+				MPI_Isend( moves+current_work, 1, MPI_INT, status.MPI_SOURCE, TAG_TASK, MPI_COMM_WORLD, &req);
 				slave_work[status.MPI_SOURCE] = current_work++;
+				printf("[ROOT] envoi du move %d à [%d]\n", slave_work[status.MPI_SOURCE], status.MPI_SOURCE);
 			}
 			else {
-				int buf = 0xdead;
-				MPI_Isend( &buf, 1, MPI_INT, i, TAG_END, MPI_COMM_WORLD);
+				int buf = BAD_MOVE;
+				MPI_Isend( &buf, 1, MPI_INT, status.MPI_SOURCE, TAG_END, MPI_COMM_WORLD, &req);
+				printf("[ROOT] envoi de fin à [%d]\n", status.MPI_SOURCE);
 			}
-			
+			flag = 0;
+			waiting_result=0;
 		}
 		
 		// Si des resultats peuvent etre analyses
 		else if( current_result<result_nb ) {
-		
+			printf("[ROOT] processing result\n");
 			int child_score = - result_table[current_result].score;
 		
 			if( child_score > result->score ) {
@@ -211,6 +226,7 @@ void master_evaluate(tree_t * T, result_t *result)
                 	
                 result->PV[0] = moves[ result_index[current_result] ];
 			}
+			current_result++;
 		}
 	}
 	free(result_index);
@@ -225,9 +241,11 @@ void slave_evaluate(tree_t * T, result_t *result)
 	/*  Parametres MPI */
 	MPI_Datatype	MPI_RESULT_T;	// result_t function handle
 	MPI_Status		status;
-	MPI_request		req;
+	MPI_Request		req;
 	int 			flag;
+	int 			rank;
 	
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
 	
 	/* Parametres de calcul */
@@ -237,6 +255,7 @@ void slave_evaluate(tree_t * T, result_t *result)
 	
 	// reception de la premiere tache
 	MPI_Recv( &move, 1, MPI_INT, ROOT, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	printf("\t[%d] reception move\n",rank);
 	
 	// tant qu'il y a des taches à accomplir
 	while( move != BAD_MOVE ) {
@@ -251,9 +270,11 @@ void slave_evaluate(tree_t * T, result_t *result)
 		
 		// envoi du resultat
 		MPI_Send( &child_result, 1, MPI_RESULT_T, ROOT, TAG_RESULT, MPI_COMM_WORLD);
+		printf("\t[%d] envoi du résultat\n",rank);
 		
 		// reception du move suivant à analyser
 		MPI_Recv( &move, 1, MPI_INT, ROOT, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		printf("\t[%d] reception move\n",rank);
 	}
 	return ;
 }
