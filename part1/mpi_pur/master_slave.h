@@ -13,6 +13,7 @@
 #include "projet.h"
 
 extern unsigned long long int node_searched;
+extern double time_tot;
 
 void create_mpi_result_t(MPI_Datatype* MPI_RESULT_T);
 

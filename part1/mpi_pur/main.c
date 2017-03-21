@@ -4,6 +4,7 @@
 /* 2017-02-23 : version 1.0 */
 
 unsigned long long int node_searched = 0;
+double time_tot;
 
 void decide(tree_t * T, result_t *result)
 {	
@@ -72,9 +73,14 @@ int main(int argc, char **argv)
 	parse_FEN(argv[1], &root);
 	print_position(&root);
 
+	time_tot = MPI_Wtime();
 	decide(&root, &result);
+	time_tot = MPI_Wtime() - time_tot;
 	
-	if( !rank ) {
+	if( rank==ROOT ) {
+		unsigned long long int node_tot = 0;
+		MPI_Reduce( &node_searched, &node_tot, 1, MPI_INT, MPI_SUM, ROOT, MPI_COMM, WORLD);
+		
 		printf("\nDécision de la position: ");
 		switch(result.score * (2*root.side - 1)) {
 			case MAX_SCORE: printf("blanc gagne\n"); break;
@@ -83,11 +89,16 @@ int main(int argc, char **argv)
 			default: printf("BUG\n");
 		}
 
-		printf("Node searched: %llu\n", node_searched);
+		printf("Node searched: %llu\t time: %f\n", node_searched, time_tot);
+	}
+	else {
+		MPI_Reduce( &node_searched, NULL, 1, MPI_INT, MPI_SUM, ROOT, MPI_COMM, WORLD);
 	}
 
 	if (TRANSPOSITION_TABLE)
 		free_tt();
+		
+	MPI_Finalize();
 	
 	return 0;
 }
