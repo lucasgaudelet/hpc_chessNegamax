@@ -5,7 +5,8 @@
 #define TAG_RESULT	1
 #define	TAG_END		2
 
-#define ROOT	0
+#define ROOT		0
+#define DEPTH_PAR	3
 
 #include <mpi.h>
 #include <stddef.h>

@@ -1,8 +1,10 @@
 #include "projet.h"
+#include <mpi.h>
 
 /* 2017-02-23 : version 1.0 */
 
 unsigned long long int node_searched = 0;
+double time_tot=0;
 
 void evaluate(tree_t * T, result_t *result)
 {
@@ -79,8 +81,11 @@ void decide(tree_t * T, result_t *result)
 		T->beta = MAX_SCORE + 1;
 
                 printf("=====================================\n");
+		double time_depth = MPI_Wtime();
 		evaluate(T, result);
+		time_depth = MPI_Wtime()-time_depth;
 
+		printf("time: %f\n",time_depth);
                 printf("depth: %d / score: %.2f / best_move : ", T->depth, 0.01 * result->score);
                 print_pv(T, result);
                 
@@ -110,7 +115,9 @@ int main(int argc, char **argv)
         parse_FEN(argv[1], &root);
         print_position(&root);
         
+	time_tot = MPI_Wtime();
 	decide(&root, &result);
+	time_tot = MPI_Wtime() - time_tot;
 
 	printf("\nDécision de la position: ");
         switch(result.score * (2*root.side - 1)) {
@@ -120,7 +127,7 @@ int main(int argc, char **argv)
         default: printf("BUG\n");
         }
 
-        printf("Node searched: %llu\n", node_searched);
+        printf("Node searched: %llu\t time: %f\n", node_searched, time_tot);
         
         if (TRANSPOSITION_TABLE)
           free_tt();

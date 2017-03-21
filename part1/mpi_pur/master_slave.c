@@ -255,7 +255,7 @@ void slave_evaluate(tree_t * T, result_t *result)
 	
 	// reception de la premiere tache
 	MPI_Recv( &move, 1, MPI_INT, ROOT, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-	printf("\t[%d] reception move\n",rank);
+	//printf("\t[%d] reception move\n",rank);
 	
 	// tant qu'il y a des taches à accomplir
 	while( move != BAD_MOVE ) {
@@ -270,11 +270,12 @@ void slave_evaluate(tree_t * T, result_t *result)
 		
 		// envoi du resultat
 		MPI_Send( &child_result, 1, MPI_RESULT_T, ROOT, TAG_RESULT, MPI_COMM_WORLD);
-		printf("\t[%d] envoi du résultat\n",rank);
+		//printf("\t[%d] envoi du résultat\n",rank);
 		
 		// reception du move suivant à analyser
 		MPI_Recv( &move, 1, MPI_INT, ROOT, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-		printf("\t[%d] reception move\n",rank);
+		//printf("\t[%d] reception move\n",rank);
 	}
+	//printf("\t[%d] exiting slave_evaluate\n", rank);
 	return ;
 }

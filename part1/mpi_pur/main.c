@@ -4,7 +4,7 @@
 /* 2017-02-23 : version 1.0 */
 
 unsigned long long int node_searched = 0;
-double time_tot;
+double time_tot = 0;
 
 void decide(tree_t * T, result_t *result)
 {	
@@ -24,20 +24,24 @@ void decide(tree_t * T, result_t *result)
 		// master
 		if(rank==ROOT) {
 				printf("=====================================\n");
-			(depth>2)? master_evaluate(T, result):evaluate(T, result);
+			
+			double time_depth = MPI_Wtime();
+			(depth>DEPTH_PAR)? master_evaluate(T, result):evaluate(T, result);
+			time_depth = MPI_Wtime()-time_depth;
 
-				printf("depth: %d / score: %.2f / best_move : ",T->depth,0.01*result->score);
-				print_pv(T, result);
+				printf("depth: %d / score: %.2f / best_move : \n",T->depth,0.01*result->score);
+				printf("time: %f\n",time_depth);
+				//print_pv(T, result);
 			
 			if (DEFINITIVE(result->score)) {
 				decision_reached = 1;
-        	}
+        		}
 			// send decision to all slaves ==> broadcast ?
 			MPI_Bcast( &decision_reached, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
 		}
 		// slave
 		else {
-			if(depth>2)	slave_evaluate(T, result);
+			if(depth>DEPTH_PAR)	slave_evaluate(T, result);
 			MPI_Bcast( &decision_reached, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
 		}
                 
@@ -52,6 +56,7 @@ int main(int argc, char **argv)
 	result_t result;
 
 	/* Initiation of the MPI layer */
+	printf("bla\n");
 	MPI_Init(&argc, &argv);
 	
 	int rank;
@@ -79,7 +84,7 @@ int main(int argc, char **argv)
 	
 	if( rank==ROOT ) {
 		unsigned long long int node_tot = 0;
-		MPI_Reduce( &node_searched, &node_tot, 1, MPI_INT, MPI_SUM, ROOT, MPI_COMM, WORLD);
+		MPI_Reduce( &node_searched, &node_tot, 1, MPI_INT, MPI_SUM, ROOT, MPI_COMM_WORLD);
 		
 		printf("\nDécision de la position: ");
 		switch(result.score * (2*root.side - 1)) {
@@ -89,10 +94,10 @@ int main(int argc, char **argv)
 			default: printf("BUG\n");
 		}
 
-		printf("Node searched: %llu\t time: %f\n", node_searched, time_tot);
+		printf("Node searched: %llu\t time: %f\n", node_tot, time_tot);
 	}
 	else {
-		MPI_Reduce( &node_searched, NULL, 1, MPI_INT, MPI_SUM, ROOT, MPI_COMM, WORLD);
+		MPI_Reduce( &node_searched, NULL, 1, MPI_INT, MPI_SUM, ROOT, MPI_COMM_WORLD);
 	}
 
 	if (TRANSPOSITION_TABLE)
