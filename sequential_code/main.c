@@ -1,11 +1,22 @@
 #include "projet.h"
+#include <time.h>	
+#include <math.h>
+#include <sys/time.h>
 
 /* 2017-02-23 : version 1.0 */
+
+
+double my_gettimeofday(){
+  struct timeval tmp_time;
+  gettimeofday(&tmp_time, NULL);
+  return tmp_time.tv_sec + (tmp_time.tv_usec * 1.0e-6L);
+}
 
 unsigned long long int node_searched = 0;
 
 void evaluate(tree_t * T, result_t *result)
 {
+
         node_searched++;
   
         move_t moves[MAX_MOVES];
@@ -38,17 +49,32 @@ void evaluate(tree_t * T, result_t *result)
         
         if (ALPHA_BETA_PRUNING)
           sort_moves(T, n_moves, moves);
-
+      	
+      
         /* évalue récursivement les positions accessibles à partir d'ici */
-        for (int i = 0; i < n_moves; i++) {
-		tree_t child;
+      	//#pragma omp parallel for schedule(runtime)  
+          //if (T->height==0){
+          if(T->height!=0){	
+          for (int i = 0; i < n_moves; i++) {
+          		
+                tree_t child;
+
                 result_t child_result;
-                
-                play_move(T, moves[i], &child);
-                
-                evaluate(&child, &child_result);
-                         
-                int child_score = -child_result.score;
+
+                	
+                	play_move(T, moves[i], &child);
+
+                	if(n_moves>2)
+                	{
+               			#pragma omp task untied
+                		evaluate(&child, &child_result);
+            		}
+
+                	else{
+                		evaluate(&child, &child_result);
+                	}
+
+        int child_score = -child_result.score;
 
 		if (child_score > result->score) {
 			result->score = child_score;
@@ -59,19 +85,68 @@ void evaluate(tree_t * T, result_t *result)
                           result->PV[0] = moves[i];
                 }
 
-                if (ALPHA_BETA_PRUNING && child_score >= T->beta)
-                  break;    
+                /*if (ALPHA_BETA_PRUNING && child_score >= T->beta)
+                	break;    */
 
                 T->alpha = MAX(T->alpha, child_score);
-        }
+        
+    //}
 
+                /*if (ALPHA_BETA_PRUNING && child_score >= T->beta)
+                	break;    */
+
+                T->alpha = MAX(T->alpha, child_score);
+    	} 
+    }
+    		else{
+          #pragma omp parallel for schedule(runtime)	
+          for (int i = 0; i < n_moves; i++) {
+
+                tree_t child;
+
+                result_t child_result;
+
+                	play_move(T, moves[i], &child);
+                	evaluate(&child, &child_result); 
+
+            
+        int child_score = -child_result.score;
+
+		if (child_score > result->score) {
+			result->score = child_score;
+			result->best_move = moves[i];
+                        result->pv_length = child_result.pv_length + 1;
+                        for(int j = 0; j < child_result.pv_length; j++)
+                          result->PV[j+1] = child_result.PV[j];
+                          result->PV[0] = moves[i];
+                }
+
+                /*if (ALPHA_BETA_PRUNING && child_score >= T->beta)
+                	break;    */
+
+                T->alpha = MAX(T->alpha, child_score);
+        
+    //}
+
+                /*if (ALPHA_BETA_PRUNING && child_score >= T->beta)
+                	break;    */
+
+                T->alpha = MAX(T->alpha, child_score);
+    	} 
+    }
+    
         if (TRANSPOSITION_TABLE)
           tt_store(T, result);
+        /*printf("n_moves=%d\n",n_moves );
+        printf("profondeur=%d\n",T->depth );*/
+      //printf("nodesearch=%d\n",node_searched );
+      
 }
 
 
 void decide(tree_t * T, result_t *result)
-{
+{	
+	 
 	for (int depth = 1;; depth++) {
 		T->depth = depth;
 		T->height = 0;
@@ -79,7 +154,8 @@ void decide(tree_t * T, result_t *result)
 		T->beta = MAX_SCORE + 1;
 
                 printf("=====================================\n");
-		evaluate(T, result);
+                  
+		              evaluate(T, result);
 
                 printf("depth: %d / score: %.2f / best_move : ", T->depth, 0.01 * result->score);
                 print_pv(T, result);
@@ -91,6 +167,7 @@ void decide(tree_t * T, result_t *result)
 
 int main(int argc, char **argv)
 {  
+	double debut, fin;
 	tree_t root;
         result_t result;
 
@@ -109,7 +186,11 @@ int main(int argc, char **argv)
         
         parse_FEN(argv[1], &root);
         print_position(&root);
-        
+
+          /* debut du chronometrage */
+    debut = my_gettimeofday(); 
+/*#pragma omp parallel
+#pragma omp single nowait*/
 	decide(&root, &result);
 
 	printf("\nDécision de la position: ");
@@ -124,5 +205,11 @@ int main(int argc, char **argv)
         
         if (TRANSPOSITION_TABLE)
           free_tt();
+
+        /* fin du chronometrage */
+  fin = my_gettimeofday();
+  fprintf( stderr, "Temps total de calcul : %g sec\n", 
+	   fin - debut);
+  fprintf( stdout, "%g\n", fin - debut);
 	return 0;
 }
