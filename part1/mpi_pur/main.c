@@ -55,13 +55,6 @@ int main(int argc, char **argv)
 	tree_t root;
 	result_t result;
 
-	/* Initiation of the MPI layer */
-	printf("bla\n");
-	MPI_Init(&argc, &argv);
-	
-	int rank;
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
 	if (argc < 2) {
 		printf("usage: %s \"4k//4K/4P w\" (or any position in FEN)\n", argv[0]);
 		exit(1);
@@ -74,7 +67,15 @@ int main(int argc, char **argv)
 		printf("Transposition table ENABLED\n");
 		init_tt();
 	}
-
+	
+	/* Initiation of the MPI layer */
+	printf("bla\n");
+	MPI_Init(&argc, &argv);
+	
+	int rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	
+	
 	parse_FEN(argv[1], &root);
 	print_position(&root);
 
