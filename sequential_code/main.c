@@ -120,6 +120,15 @@ void decide(tree_t * T, result_t *result)
 
 int main(int argc, char **argv)
 {  
+	printf("time decide: %f\n",time_tot);
+	printf("\ttime evaluate: %.2f%%\n",100*time_evaluate/time_tot);
+	printf("\t\ttime compute_attack_squares: %.2f%%\n",100*time_compute_attack_squares/time_evaluate); 
+	printf("\t\ttime heuristic_evaluation: %.2f%%\n",100*time_heuristic_evaluation/time_evaluate);
+	printf("\t\ttime generate_legal_moves: %.2f%%\n",100*time_generate_legal_moves/time_evaluate);
+	printf("\t\ttime check: %.2f%%\n",100*time_check/time_evaluate);
+	printf("\t\ttime sort_moves: %.2f%%\n",100*time_sort_moves/time_evaluate);
+	printf("\t\ttime play_move: %.2f%%\n",100*time_play_move/time_evaluate);
+	
 	tree_t root;
         result_t result;
 
