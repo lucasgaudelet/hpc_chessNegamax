@@ -1,6 +1,6 @@
 #include "projet.h"
 #include "master_slave.h"
-ceci est un test
+
 /* 2017-02-23 : version 1.0 */
 
 unsigned long long int node_searched = 0;
@@ -8,12 +8,12 @@ double time_tot = 0;
 
 void decide(tree_t * T, result_t *result)
 {	
-	/* MPI Parameters */
+	// MPI Parameters
 	int decision_reached=0;
 	int rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	
-	/* depth loop */
+	// depth loop
 	for (int depth = 1; !decision_reached; depth++) {
 	
 		T->depth = depth;
@@ -21,30 +21,34 @@ void decide(tree_t * T, result_t *result)
 		T->alpha_start = T->alpha = -MAX_SCORE - 1;
 		T->beta = MAX_SCORE + 1;
 		
-		// master
 		if(rank==ROOT) {
 				printf("=====================================\n");
 			
+			// calculs
 			double time_depth = MPI_Wtime();
-			(depth>DEPTH_PAR)? master_evaluate(T, result):evaluate(T, result);
+			(depth>PAR_LEVEL)? master_evaluate(T, result):evaluate(T, result);
 			time_depth = MPI_Wtime()-time_depth;
-
-				printf("depth: %d / score: %.2f / best_move : \n",T->depth,0.01*result->score);
-				printf("time: %f\n",time_depth);
-				//print_pv(T, result);
 			
+			// affichages
+			printf("depth: %d / score: %.2f / best_move : \n",T->depth,0.01*result->score);
+			printf("time: %f\n",time_depth);
+			//print_pv(T, result);
+			
+			// decision
 			if (DEFINITIVE(result->score)) {
 				decision_reached = 1;
-        		}
-			// send decision to all slaves ==> broadcast ?
+        	}
+        	
+        	// synchronisation des processus
 			MPI_Bcast( &decision_reached, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
 		}
-		// slave
 		else {
+			// calculs
 			if(depth>DEPTH_PAR)	slave_evaluate(T, result);
+			
+			//synchronisation des processus
 			MPI_Bcast( &decision_reached, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
 		}
-                
         
 	}
 }
@@ -54,12 +58,14 @@ int main(int argc, char **argv)
 {
 	tree_t root;
 	result_t result;
-
+	
+	// verification des paramètres d'entrée
 	if (argc < 2) {
 		printf("usage: %s \"4k//4K/4P w\" (or any position in FEN)\n", argv[0]);
 		exit(1);
 	}
-
+	
+	// affichage de la configuration
 	if (ALPHA_BETA_PRUNING)
 		printf("Alpha-beta pruning ENABLED\n");
 
@@ -68,21 +74,23 @@ int main(int argc, char **argv)
 		init_tt();
 	}
 	
-	/* Initiation of the MPI layer */
-	printf("bla\n");
+	// initiation de la couche MPI
 	MPI_Init(&argc, &argv);
-	
 	int rank;
+	
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	
-	
+	create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
+
+	// lecture de la position (par tous les processus)
 	parse_FEN(argv[1], &root);
 	print_position(&root);
-
+	
+	// execution
 	time_tot = MPI_Wtime();
 	decide(&root, &result);
 	time_tot = MPI_Wtime() - time_tot;
 	
+	// affichage des resultats
 	if( rank==ROOT ) {
 		unsigned long long int node_tot = 0;
 		MPI_Reduce( &node_searched, &node_tot, 1, MPI_INT, MPI_SUM, ROOT, MPI_COMM_WORLD);

@@ -12,11 +12,6 @@ void create_mpi_result_t(MPI_Datatype* MPI_RESULT_T)
     	{MPI_INT,MPI_INT,MPI_INT,MPI_INT};
     
 	MPI_Aint displacement[4];	// block displacement
-		/*result_t result;
-		displacement[0] = &result.score - &result;
-		displacement[1] = &result.best_move - &result;
-		displacement[2] = &result.pv_length - &result;
-		displacement[3] = &result.PV - &result;*/
 		displacement[0] = offsetof(result_t, score);
 		displacement[1] = offsetof(result_t, best_move);
 		displacement[2] = offsetof(result_t, pv_length);
@@ -102,14 +97,14 @@ void evaluate(tree_t * T, result_t *result)
 void master_evaluate(tree_t * T, result_t *result)
 {
 	/*  Parametres MPI */
-	MPI_Datatype	MPI_RESULT_T;	// result_t function handle
+	//MPI_Datatype	MPI_RESULT_T;	// result_t function handle
 	MPI_Status		status;
 	MPI_Request		req;
 	int np, flag;
 	int waiting_result=0;
 	
-	create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
 	MPI_Comm_size(MPI_COMM_WORLD, &np);	// recuperation du nombre de processus
+	//create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
 	
 	/* tableau des coups possibles */
 	move_t moves[MAX_MOVES];	// coups legaux
@@ -239,14 +234,14 @@ void slave_evaluate(tree_t * T, result_t *result)
 {
 
 	/*  Parametres MPI */
-	MPI_Datatype	MPI_RESULT_T;	// result_t function handle
+	//MPI_Datatype	MPI_RESULT_T;	// result_t function handle
 	MPI_Status		status;
 	MPI_Request		req;
 	int 			flag;
 	int 			rank;
 	
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
+	//create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
 	
 	/* Parametres de calcul */
 	move_t move;			// le coup a analyser
