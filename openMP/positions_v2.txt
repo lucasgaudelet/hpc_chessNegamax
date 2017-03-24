@@ -1,0 +1,25 @@
+Avec Alpha-beta
+===============
+
+FEN                         | DECISION   | DEPTH | TIME   | REMARKS
+----------------------------+------------+-------+--------+----------------------------
+"5k//2K1P b"                | draw       | 17    | 27s    |
+"4k///4K///4P w"            | white wins | 14    | 9s     |
+"/5p/4p/4PP/4K///k w"       | white wins | 18    | 32s    |
+"/2k1K////3P/3P w"          | white wins | 16    | 2m25   |
+"/5p/4p/4P/4KP///k w"       | white wins | 22    | 12m40s |
+
+
+
+
+Avec Alpha-beta + table de transposition
+========================================
+
+FEN                         | DECISION   | DEPTH | TIME   | REMARKS
+----------------------------+------------+-------+--------+----------------------------
+"K////2k3P/6P/6P/ w"        | white wins |  38   | 3s      | longest KPPP vs k
+"/k/3p/p2P1p/P2P1P///K w"   | white wins |  44   | 10s     | Lasker-Reichhelm game
+"//pppk/5K//2P2P w"         | black wins |  26   | 55s     |
+"4k//1p1p/p//1PPK w"        | draw       |  29   | 1min4   |
+"/6pp/5p/3k1PP/5K1P w"      | draw       |  46   | 3min00  | Tarrasch-Chigorin game, 1905
+

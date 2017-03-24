@@ -178,8 +178,7 @@ int main(int argc, char **argv)
 
           /* debut du chronometrage */
     debut = my_gettimeofday(); 
-/*#pragma omp parallel
-#pragma omp single nowait*/
+
 	decide(&root, &result);
 
 	printf("\nDécision de la position: ");
