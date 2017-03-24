@@ -54,7 +54,8 @@ void evaluate(tree_t * T, result_t *result)
         /* évalue récursivement les positions accessibles à partir d'ici */
       	//#pragma omp parallel for schedule(runtime)  
           //if (T->height==0){
-          if(T->height!=0){	
+      		//printf("nombre d'appels récursifs depuis la racine=%d\n",T->height );
+          if(T->height==0){	
           for (int i = 0; i < n_moves; i++) {
           		
                 tree_t child;
@@ -64,15 +65,15 @@ void evaluate(tree_t * T, result_t *result)
                 	
                 	play_move(T, moves[i], &child);
 
-                	if(n_moves>2)
+                	/*if(n_moves>2)
                 	{
                			#pragma omp task untied
                 		evaluate(&child, &child_result);
-            		}
+            		}*/
 
-                	else{
+                	//else{
                 		evaluate(&child, &child_result);
-                	}
+                	//}
 
         int child_score = -child_result.score;
 
@@ -90,14 +91,14 @@ void evaluate(tree_t * T, result_t *result)
 
                 T->alpha = MAX(T->alpha, child_score);
         
-    //}
+    }
 
                 /*if (ALPHA_BETA_PRUNING && child_score >= T->beta)
                 	break;    */
 
-                T->alpha = MAX(T->alpha, child_score);
+
     	} 
-    }
+    
     		else{
           #pragma omp parallel for schedule(runtime)	
           for (int i = 0; i < n_moves; i++) {
@@ -131,15 +132,13 @@ void evaluate(tree_t * T, result_t *result)
                 /*if (ALPHA_BETA_PRUNING && child_score >= T->beta)
                 	break;    */
 
-                T->alpha = MAX(T->alpha, child_score);
+
     	} 
     }
     
         if (TRANSPOSITION_TABLE)
           tt_store(T, result);
-        /*printf("n_moves=%d\n",n_moves );
-        printf("profondeur=%d\n",T->depth );*/
-      //printf("nodesearch=%d\n",node_searched );
+
       
 }
 
