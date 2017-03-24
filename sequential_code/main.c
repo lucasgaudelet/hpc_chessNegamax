@@ -4,13 +4,6 @@
 
 /* 2017-02-23 : version 1.0 */
 
-
-double my_gettimeofday(){
-  struct timeval tmp_time;
-  gettimeofday(&tmp_time, NULL);
-  return tmp_time.tv_sec + (tmp_time.tv_usec * 1.0e-6L);
-}
-
 unsigned long long int node_searched = 0;
 double time_tot=0;
 //double time_decide=0;
