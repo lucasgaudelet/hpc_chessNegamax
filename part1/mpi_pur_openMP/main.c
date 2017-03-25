@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 	}
 
 	parse_FEN(argv[1], &root);
-	print_position(&root);
+	if( rank==ROOT) print_position(&root);
 
 	time_tot = MPI_Wtime();
 	decide(&root, &result);
