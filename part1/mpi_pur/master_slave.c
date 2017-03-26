@@ -102,13 +102,13 @@ void evaluate(tree_t * T, result_t *result)
 void master_evaluate(tree_t * T, result_t *result)
 {
 	/*  Parametres MPI */
-	MPI_Datatype	MPI_RESULT_T;	// result_t function handle
+	//MPI_Datatype	MPI_RESULT_T;	// result_t function handle
 	MPI_Status		status;
 	MPI_Request		req;
 	int np, flag;
 	int waiting_result=0;
 	
-	create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
+	//create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
 	MPI_Comm_size(MPI_COMM_WORLD, &np);	// recuperation du nombre de processus
 	
 	/* tableau des coups possibles */
@@ -232,6 +232,8 @@ void master_evaluate(tree_t * T, result_t *result)
 	free(result_index);
 	free(slave_work);
 	free(result_table);
+
+	//MPI_Type_Free(&MPI_RESULT_T);
 }
 
 
@@ -239,7 +241,7 @@ void slave_evaluate(tree_t * T, result_t *result)
 {
 
 	/*  Parametres MPI */
-	MPI_Datatype	MPI_RESULT_T;	// result_t function handle
+	//MPI_Datatype	MPI_RESULT_T;	// result_t function handle
 	MPI_Status		status;
 	MPI_Request		req;
 	int 			flag;
@@ -277,5 +279,8 @@ void slave_evaluate(tree_t * T, result_t *result)
 		//printf("\t[%d] reception move\n",rank);
 	}
 	//printf("\t[%d] exiting slave_evaluate\n", rank);
+	
+	//MPI_Type_Free(&MPI_RESULT_T);
+
 	return ;
 }

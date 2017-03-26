@@ -25,12 +25,12 @@ void decide(tree_t * T, result_t *result)
 		if(rank==ROOT) {
 				printf("=====================================\n");
 			
-			double time_depth = MPI_Wtime();
+			//double time_depth = MPI_Wtime();
 			(depth>DEPTH_PAR)? master_evaluate(T, result):evaluate(T, result);
-			time_depth = MPI_Wtime()-time_depth;
+			//time_depth = MPI_Wtime()-time_depth;
 
 				printf("depth: %d / score: %.2f / best_move : \n",T->depth,0.01*result->score);
-				printf("time: %f\n",time_depth);
+				//printf("time: %f\n",time_depth);
 				//print_pv(T, result);
 			
 			if (DEFINITIVE(result->score)) {
@@ -55,11 +55,6 @@ int main(int argc, char **argv)
 	tree_t root;
 	result_t result;
 
-	if (argc < 2) {
-		printf("usage: %s \"4k//4K/4P w\" (or any position in FEN)\n", argv[0]);
-		exit(1);
-	}
-
 	if (ALPHA_BETA_PRUNING)
 		printf("Alpha-beta pruning ENABLED\n");
 
@@ -74,7 +69,12 @@ int main(int argc, char **argv)
 	
 	int rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	
+	create_mpi_result_t(&MPI_RESULT_T);	
+
+	if (argc < 2) {
+        	printf("usage: %s \"4k//4K/4P w\" (or any position in FEN)\n", argv[0]);
+                exit(1);
+        }
 	
 	parse_FEN(argv[1], &root);
 	print_position(&root);

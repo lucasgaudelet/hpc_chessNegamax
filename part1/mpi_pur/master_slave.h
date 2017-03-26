@@ -1,6 +1,14 @@
 #ifndef MASTER_SLAVE
 #define MASTER_SLAVE
 
+/* include */
+
+#include <mpi.h>
+#include <stddef.h>
+
+#include "projet.h"
+
+/* constants */
 #define TAG_TASK	0
 #define TAG_RESULT	1
 #define	TAG_END		2
@@ -8,14 +16,12 @@
 #define ROOT		0
 #define DEPTH_PAR	3
 
-#include <mpi.h>
-#include <stddef.h>
-
-#include "projet.h"
-
+/* variables */
 extern unsigned long long int node_searched;
 extern double time_tot;
+MPI_Datatype	MPI_RESULT_T;	// result_t function handle
 
+/* functions */
 void create_mpi_result_t(MPI_Datatype* MPI_RESULT_T);
 
 void broadcast_end(int np);
