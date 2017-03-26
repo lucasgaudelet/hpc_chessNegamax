@@ -37,12 +37,15 @@ void decide(tree_t * T, result_t *result)
 				decision_reached = 1;
         		}
 			// send decision to all slaves ==> broadcast ?
+			printf("[ROOT] broadcast decision_reached\n");
 			MPI_Bcast( &decision_reached, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
+			printf("[ROOT] decision_reached=%d\n", decision_reached);
 		}
 		// slave
 		else {
 			if(depth>DEPTH_PAR)	slave_evaluate(T, result);
 			MPI_Bcast( &decision_reached, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
+			printf("[%d] decision_reached=%d\n", rank, decision_reached);
 		}
                 
         
@@ -77,7 +80,7 @@ int main(int argc, char **argv)
         }
 	
 	parse_FEN(argv[1], &root);
-	print_position(&root);
+	if(rank==ROOT) print_position(&root);
 
 	time_tot = MPI_Wtime();
 	decide(&root, &result);
