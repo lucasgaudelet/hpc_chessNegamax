@@ -9,8 +9,7 @@ aux.o: aux.c projet.h
 decide: main.o aux.o
 	$(CC) $(CFLAGS) $^ -o $@
 
-.PHONY: clean
-
 clean:
 	rm -f *.o decide
 
+.PHONY: clean

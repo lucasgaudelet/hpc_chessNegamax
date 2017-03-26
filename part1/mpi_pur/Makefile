@@ -10,8 +10,7 @@ master_slave.o: master_slave.c master_slave.h projet.h
 decide: main.o aux.o master_slave.o
 	$(CC) $(CFLAGS) $^ -o $@
 
-.PHONY: clean
-
 clean:
 	rm -f *.o decide
 
+.PHONY: clean
