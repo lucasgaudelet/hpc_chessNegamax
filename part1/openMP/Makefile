@@ -9,8 +9,10 @@ aux.o: aux.c projet.h
 decide: main.o aux.o
 	$(CC) $(CFLAGS) $^ -o $@
 
-.PHONY: clean
+exec: decide
+	export OMP_NUM_THREADS=2 &&./decide "4k//4K/4P w"
 
 clean:
 	rm -f *.o decide
 
+.PHONY: clean

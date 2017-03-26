@@ -106,7 +106,8 @@ int main(int argc, char **argv)
 
 	if (TRANSPOSITION_TABLE)
 		free_tt();
-		
+	
+	MPI_Type_free(&MPI_RESULT_T);		
 	MPI_Finalize();
 	
 	return 0;
