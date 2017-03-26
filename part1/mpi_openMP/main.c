@@ -25,24 +25,27 @@ void decide(tree_t * T, result_t *result)
 		if(rank==ROOT) {
 				printf("=====================================\n");
 			
-			double time_depth = MPI_Wtime();
+			//double time_depth = MPI_Wtime();
 			(depth>DEPTH_PAR)? master_evaluate(T, result):evaluate(T, result);
-			time_depth = MPI_Wtime()-time_depth;
+			//time_depth = MPI_Wtime()-time_depth;
 
 				printf("depth: %d / score: %.2f / best_move : \n",T->depth,0.01*result->score);
-				printf("time: %f\n",time_depth);
+				//printf("time: %f\n",time_depth);
 				//print_pv(T, result);
 			
 			if (DEFINITIVE(result->score)) {
 				decision_reached = 1;
         		}
 			// send decision to all slaves ==> broadcast ?
+			printf("[ROOT] broadcast decision_reached\n");
 			MPI_Bcast( &decision_reached, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
+			printf("[ROOT] decision_reached=%d\n", decision_reached);
 		}
 		// slave
 		else {
 			if(depth>DEPTH_PAR)	slave_evaluate(T, result);
 			MPI_Bcast( &decision_reached, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
+			printf("[%d] decision_reached=%d\n", rank, decision_reached);
 		}
                 
         
@@ -55,18 +58,6 @@ int main(int argc, char **argv)
 	tree_t root;
 	result_t result;
 
-	/* Initiation of the MPI layer */
-	printf("bla\n");
-	MPI_Init(&argc, &argv);
-	
-	int rank;
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-	if (argc < 2) {
-		printf("usage: %s \"4k//4K/4P w\" (or any position in FEN)\n", argv[0]);
-		exit(1);
-	}
-
 	if (ALPHA_BETA_PRUNING)
 		printf("Alpha-beta pruning ENABLED\n");
 
@@ -74,9 +65,22 @@ int main(int argc, char **argv)
 		printf("Transposition table ENABLED\n");
 		init_tt();
 	}
+	
+	/* Initiation of the MPI layer */
+	printf("bla\n");
+	MPI_Init(&argc, &argv);
+	
+	int rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	create_mpi_result_t(&MPI_RESULT_T);	
 
+	if (argc < 2) {
+        	printf("usage: %s \"4k//4K/4P w\" (or any position in FEN)\n", argv[0]);
+                exit(1);
+        }
+	
 	parse_FEN(argv[1], &root);
-	if( rank==ROOT) print_position(&root);
+	if(rank==ROOT) print_position(&root);
 
 	time_tot = MPI_Wtime();
 	decide(&root, &result);

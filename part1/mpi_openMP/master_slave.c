@@ -1,4 +1,6 @@
 #include "master_slave.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 void create_mpi_result_t(MPI_Datatype* MPI_RESULT_T)
 {
@@ -33,6 +35,7 @@ void broadcast_end(int np) {
 		MPI_Send( &buf, 1, MPI_INT, i, TAG_END, MPI_COMM_WORLD); 
 	}
 }
+
 
 void evaluate(tree_t * T, result_t *result)
 {
@@ -147,16 +150,17 @@ void evaluate(tree_t * T, result_t *result)
 }
 
 
+
 void master_evaluate(tree_t * T, result_t *result)
 {
 	/*  Parametres MPI */
-	MPI_Datatype	MPI_RESULT_T;	// result_t function handle
+	//MPI_Datatype	MPI_RESULT_T;	// result_t function handle
 	MPI_Status		status;
 	MPI_Request		req;
 	int np, flag;
 	int waiting_result=0;
 	
-	create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
+	//create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
 	MPI_Comm_size(MPI_COMM_WORLD, &np);	// recuperation du nombre de processus
 	
 	/* tableau des coups possibles */
@@ -167,7 +171,7 @@ void master_evaluate(tree_t * T, result_t *result)
 	/* tableau des resultats */
 	result_t* result_table;			// tableau de resultats pour chaque move
 	int result_nb;		// number of results received in result_table
-    int current_result;	// the index of the next result to analyse 
+	int current_result;	// the index of the next result to analyse 
     					// in result_table
     					
 	int* result_index;	// result_index[i] est l'index j du coup moves[j]
@@ -254,6 +258,7 @@ void master_evaluate(tree_t * T, result_t *result)
 				MPI_Isend( &buf, 1, MPI_INT, status.MPI_SOURCE, TAG_END, MPI_COMM_WORLD, &req);
 				printf("[ROOT] envoi de fin à [%d]\n", status.MPI_SOURCE);
 			}
+			MPI_Request_free(&req);
 			flag = 0;
 			waiting_result=0;
 		}
@@ -280,6 +285,8 @@ void master_evaluate(tree_t * T, result_t *result)
 	free(result_index);
 	free(slave_work);
 	free(result_table);
+
+	//MPI_Type_Free(&MPI_RESULT_T);
 }
 
 
@@ -287,26 +294,31 @@ void slave_evaluate(tree_t * T, result_t *result)
 {
 
 	/*  Parametres MPI */
-	MPI_Datatype	MPI_RESULT_T;	// result_t function handle
+	//MPI_Datatype	MPI_RESULT_T;	// result_t function handle
 	MPI_Status		status;
 	MPI_Request		req;
 	int 			flag;
 	int 			rank;
 	
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
+	//create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
+	
+	/* log */
+	/*char filename[5];
+	sprintf(filename, "log%d", rank);
+	FILE * f = fopen( filename, "a");*/
 	
 	/* Parametres de calcul */
 	move_t move;			// le coup a analyser
 	
 	compute_attack_squares(T);
-	
+		
 	// reception de la premiere tache
 	MPI_Recv( &move, 1, MPI_INT, ROOT, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-	//printf("\t[%d] reception move\n",rank);
+	//fprintf(f, "\t[%d] reception move\n",rank);
 	
 	// tant qu'il y a des taches à accomplir
-	while( move != BAD_MOVE ) {
+	while( status.MPI_TAG != TAG_END ) {
 		
 		result_t child_result;	// le resultat a renvoyer
 			result->score = -MAX_SCORE - 1;
@@ -318,12 +330,15 @@ void slave_evaluate(tree_t * T, result_t *result)
 		
 		// envoi du resultat
 		MPI_Send( &child_result, 1, MPI_RESULT_T, ROOT, TAG_RESULT, MPI_COMM_WORLD);
-		//printf("\t[%d] envoi du résultat\n",rank);
+		//fprintf(f, "\t[%d] envoi du résultat\n",rank);
 		
 		// reception du move suivant à analyser
 		MPI_Recv( &move, 1, MPI_INT, ROOT, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-		//printf("\t[%d] reception move\n",rank);
+		//fprintf(f, "\t[%d] reception move\n",rank);
 	}
-	//printf("\t[%d] exiting slave_evaluate\n", rank);
+	//fprintf(f, "\t[%d] exiting slave_evaluate\n", rank);
+	//fclose(f);
+	//MPI_Type_Free(&MPI_RESULT_T);
+
 	return ;
 }
