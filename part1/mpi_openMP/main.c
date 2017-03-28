@@ -29,7 +29,7 @@ void decide(tree_t * T, result_t *result)
 			(depth>DEPTH_PAR)? master_evaluate(T, result):evaluate(T, result);
 			//time_depth = MPI_Wtime()-time_depth;
 
-				printf("depth: %d / score: %.2f / best_move : \n",T->depth,0.01*result->score);
+				printf("[ROOT] depth: %d / score: %.2f / best_move : \n",T->depth,0.01*result->score);
 				//printf("time: %f\n",time_depth);
 				//print_pv(T, result);
 			
@@ -45,7 +45,7 @@ void decide(tree_t * T, result_t *result)
 		else {
 			if(depth>DEPTH_PAR)	slave_evaluate(T, result);
 			MPI_Bcast( &decision_reached, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
-			printf("[%d] decision_reached=%d\n", rank, decision_reached);
+			//printf("[%d] decision_reached=%d\n", rank, decision_reached);
 		}
                 
         
@@ -67,7 +67,6 @@ int main(int argc, char **argv)
 	}
 	
 	/* Initiation of the MPI layer */
-	printf("bla\n");
 	MPI_Init(&argc, &argv);
 	
 	int rank;
@@ -106,7 +105,8 @@ int main(int argc, char **argv)
 
 	if (TRANSPOSITION_TABLE)
 		free_tt();
-		
+	
+	MPI_Type_free(&MPI_RESULT_T);		
 	MPI_Finalize();
 	
 	return 0;
