@@ -14,6 +14,7 @@ double my_gettimeofday(){
 
 unsigned long long int node_searched = 0;
 
+
 void evaluate(tree_t * T, result_t *result)
 {
 
@@ -58,7 +59,6 @@ void evaluate(tree_t * T, result_t *result)
                 tree_t child;
 
                 result_t child_result;
-
                 	
                 	play_move(T, moves[i], &child);
 
