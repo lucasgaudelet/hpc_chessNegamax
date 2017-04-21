@@ -29,6 +29,45 @@ void create_mpi_result_t(MPI_Datatype* MPI_RESULT_T)
 	MPI_Type_commit(MPI_RESULT_T);
 }
 
+void create_mpi_tree_t(MPI_Datatype* MPI_RESULT_T)
+{
+	/* creates MPI function handle for result_t structure */
+	
+	int count = 14;							// number of blocks
+
+	// block length
+	int blocklen[] = { 128, 128, 1, 
+		1, 1, 1, 1, 1,
+		2, 1, 128,
+		1, 1, 128};
+
+	// block type
+	MPI_Datatype type[] = { MPI_CHAR, MPI_CHAR, MPI_INT,
+		MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT,
+		MPI_INT, MPI_INT, MPI_CHAR,
+		MPI_INT, MPI_UNSIGNED_LONG_LONG, MPI_UNSIGNED_LONG_LONG}; 
+    
+	MPI_Aint displacement[14];	// block displacement
+		displacement[0] = offsetof(tree_t, pieces);
+		displacement[1] = offsetof(tree_t, colors);
+		displacement[2] = offsetof(tree_t, side);
+		displacement[3] = offsetof(tree_t, depth);
+		displacement[4] = offsetof(tree_t, height);
+		displacement[5] = offsetof(tree_t, alpha);
+		displacement[6] = offsetof(tree_t, beta);
+		displacement[7] = offsetof(tree_t, alpha_start);
+		displacement[8] = offsetof(tree_t, king);
+		displacement[9] = offsetof(tree_t, pawns);
+		displacement[10] = offsetof(tree_t, attack);
+		displacement[11] = offsetof(tree_t, suggested_move);
+		displacement[12] = offsetof(tree_t, hash);
+		displacement[13] = offsetof(tree_t, history);
+		
+	/* MPI calls */
+	MPI_Type_create_struct(count, blocklen, displacement, type, MPI_RESULT_T);
+	MPI_Type_commit(MPI_RESULT_T);
+}
+
 void broadcast_end(int np) {
 	int buf = BAD_MOVE;
 	for( int i=1; i<np; i++) {
