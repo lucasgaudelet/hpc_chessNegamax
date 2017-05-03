@@ -6,7 +6,7 @@
 unsigned long long int node_searched = 0;
 double time_tot = 0;
 
-void decide(tree_t * T, result_t *result)
+void decide(node_t* root)
 {	
 	/* MPI Parameters */
 	int decision_reached=0;
@@ -15,35 +15,37 @@ void decide(tree_t * T, result_t *result)
 	
 	/* depth loop */
 	for (int depth = 1; !decision_reached; depth++) {
-	
-		T->depth = depth;
-		T->height = 0;
-		T->alpha_start = T->alpha = -MAX_SCORE - 1;
-		T->beta = MAX_SCORE + 1;
 		
 		// master
 		if(rank==ROOT) {
+			root->tree.depth = depth;
+			root->tree.height = 0;
+			root->tree.alpha_start = root->tree.alpha = -MAX_SCORE - 1;
+			root->tree.beta = MAX_SCORE + 1;
+		
 				printf("=====================================\n");
 			
 			//double time_depth = MPI_Wtime();
-			(depth>DEPTH_PAR)? master_evaluate(T, result):evaluate(T, result);
+			(depth>DEPTH_PAR)? master_evaluate(root):evaluate(root->tree, root->result);
 			//time_depth = MPI_Wtime()-time_depth;
 
-				printf("[ROOT] depth: %d / score: %.2f / best_move : \n",T->depth,0.01*result->score);
+				printf("[ROOT] depth: %d / score: %.2f / best_move : \n",root->tree.depth,0.01*root->result.score);
 				//printf("time: %f\n",time_depth);
 				//print_pv(T, result);
 			
-			if (DEFINITIVE(result->score)) {
+			if (DEFINITIVE(root->result.score)) {
 				decision_reached = 1;
-        		}
-			// send decision to all slaves ==> broadcast ?
+        	}
+        	
+			// send decision to all slaves
 			printf("[ROOT] broadcast decision_reached\n");
 			MPI_Bcast( &decision_reached, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
 			printf("[ROOT] decision_reached=%d\n", decision_reached);
 		}
+		
 		// slave
 		else {
-			if(depth>DEPTH_PAR)	slave_evaluate(T, result);
+			if(depth>DEPTH_PAR)	slave_evaluate();
 			MPI_Bcast( &decision_reached, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
 			//printf("[%d] decision_reached=%d\n", rank, decision_reached);
 		}
@@ -55,37 +57,40 @@ void decide(tree_t * T, result_t *result)
 
 int main(int argc, char **argv)
 {
-	tree_t root;
-	result_t result;
-
-	if (ALPHA_BETA_PRUNING)
-		printf("Alpha-beta pruning ENABLED\n");
-
-	if (TRANSPOSITION_TABLE) {
-		printf("Transposition table ENABLED\n");
-		init_tt();
-	}
+	//tree_t root;
+	//result_t result;
+	node_t root;
 	
 	/* Initiation of the MPI layer */
 	MPI_Init(&argc, &argv);
 	
 	int rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	
 	create_mpi_result_t(&MPI_RESULT_T);	
 	create_mpi_tree_t(&MPI_TREE_T);
 
-	if(rank==ROOT) {
-		if (argc < 2) {
-        		printf("usage: %s \"4k//4K/4P w\" (or any position in FEN)\n", argv[0]);
-                	exit(1);
-        	}
+	if (argc < 2) {
+		if(rank==ROOT) printf("usage: %s \"4k//4K/4P w\" (or any position in FEN)\n", argv[0]);
+        exit(1);
+	}
 	
-		parse_FEN(argv[1], &root);
-		print_position(&root);
+	if(rank==ROOT) {
+		
+		if (ALPHA_BETA_PRUNING)
+			printf("Alpha-beta pruning ENABLED\n");
+
+		if (TRANSPOSITION_TABLE) {
+			printf("Transposition table ENABLED\n");
+			init_tt();
+		}
+		
+		parse_FEN(argv[1], &root.tree);
+		print_position(&root.tree);
 	}
 
 	time_tot = MPI_Wtime();
-	decide(&root, &result);
+	decide(&root);
 	time_tot = MPI_Wtime() - time_tot;
 	
 	if( rank==ROOT ) {

@@ -14,24 +14,51 @@
 #define	TAG_END		2
 
 #define ROOT		0
-#define DEPTH_PAR	3
+#define DEPTH_PAR	4
+#define LEVEL_MAX	2
 
-/* variables */
+/* variables and data types*/
 extern unsigned long long int node_searched;
 extern double time_tot;
 MPI_Datatype	MPI_RESULT_T;	// result_t function handle
 MPI_Datatype	MPI_TREE_T;	// tree_t function handle
 
+typedef struct {
+	node_t* father;
+	node_t* sons;
+	
+	tree_t tree;
+	result_t result;
+	
+	move_t moves[MAX_MOVES];
+	int n_moves;
+	
+	int current_work;
+	int result_nb;
+	
+} node_t;
+
 /* functions */
+
+// function handle creation
 void create_mpi_result_t(MPI_Datatype* MPI_RESULT_T);
+void create_mpi_tree_t(MPI_Datatype* MPI_RESULT_T);
 
-void broadcast_end(int np);
 
+
+// control tree functions
+node_t* generate_control_tree(node_t* root, tree_t* T, int level);
+void free_control_tree(node_t* root);
+node_t* next_task(node_t* root);
+void manage_result(result_t* result, node_t* node);
+
+// evaluate functions
 void evaluate(tree_t * T, result_t *result);
-
 void master_evaluate(tree_t * T, result_t *result);
+void slave_evaluate();
 
-void slave_evaluate(tree_t * T, result_t *result);
+// miscellaneous
+void broadcast_end(int np);
 
 #endif
 

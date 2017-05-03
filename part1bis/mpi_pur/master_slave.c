@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+
 void create_mpi_result_t(MPI_Datatype* MPI_RESULT_T)
 {
 	/* creates MPI function handle for result_t structure */
@@ -14,11 +15,6 @@ void create_mpi_result_t(MPI_Datatype* MPI_RESULT_T)
 		{MPI_INT,MPI_INT,MPI_INT,MPI_INT};
 	
 	MPI_Aint displacement[4];	// block displacement
-		/*result_t result;
-		displacement[0] = &result.score - &result;
-		displacement[1] = &result.best_move - &result;
-		displacement[2] = &result.pv_length - &result;
-		displacement[3] = &result.PV - &result;*/
 		displacement[0] = offsetof(result_t, score);
 		displacement[1] = offsetof(result_t, best_move);
 		displacement[2] = offsetof(result_t, pv_length);
@@ -29,6 +25,7 @@ void create_mpi_result_t(MPI_Datatype* MPI_RESULT_T)
 	MPI_Type_commit(MPI_RESULT_T);
 }
 
+
 void create_mpi_tree_t(MPI_Datatype* MPI_RESULT_T)
 {
 	/* creates MPI function handle for result_t structure */
@@ -38,7 +35,7 @@ void create_mpi_tree_t(MPI_Datatype* MPI_RESULT_T)
 	// block length
 	int blocklen[] = { 128, 128, 1, 
 		1, 1, 1, 1, 1,
-		2, 1, 128,
+		2, 2, 128,
 		1, 1, 128};
 
 	// block type
@@ -68,11 +65,111 @@ void create_mpi_tree_t(MPI_Datatype* MPI_RESULT_T)
 	MPI_Type_commit(MPI_RESULT_T);
 }
 
+
 void broadcast_end(int np) {
 	int buf = BAD_MOVE;
 	for( int i=1; i<np; i++) {
 		MPI_Send( &buf, 1, MPI_INT, i, TAG_END, MPI_COMM_WORLD); 
 	}
+}
+
+
+void generate_control_tree(node_t* root, int level){
+
+	/* initialise les variables du noeud */
+	if(level==0) {
+		root->father = NULL;
+	}
+	root->current_work = 0;
+	root->result_nb = 0;
+	root->n_moves = 0;
+	
+	root->result.pv_length = 0;
+	root->result.score = -MAX_SCORE - 1;
+	
+	/* si retour rapide */
+	if (test_draw_or_victory(&root->tree, &root->result))
+		  return;
+	
+	/* génération des fils */
+	if(level != LEVEL_MAX) {
+		compute_attack_squares(&root->tree);
+		root->n_moves = generate_legal_moves(&root->tree, root->moves);
+		if (root->n_moves == 0) {
+			root->result.score = check(root->tree) ? -MAX_SCORE : CERTAIN_DRAW;
+			root->sons = NULL;
+			return;
+		}
+		
+		root->sons = (node_t*)malloc(root->n_moves*sizeof(node_t));
+		
+		/* appel récursif sur les fils */
+		for(int i=0; i<root->n_moves; i++) {
+			root->sons[i].father = root;
+			play_move(&root->tree, root->moves[i], &root->sons[i]->tree);
+			generate_control_tree( root->sons+i, level+1);
+		}
+	}
+	else {
+		root->sons = NULL;
+	}
+}
+
+void free_control_tree(node_t* root) {
+	if(root->sons) {
+		for(int i=0; i<root->n_moves; i++) {
+			free_control_tree(root->sons+i);
+		}
+		free(root->sons);
+	}
+}
+
+node_t* next_task(node_t* root) {
+	
+	// si toutes les taches ont été distribuées
+	if(root->current_work == root->n_moves) {
+		return NULL;
+	}
+	
+	// selection de la feuille à retourner
+	while(root->sons) {	
+			root = root->sons[current_work];
+	}
+	
+	// incrémentation des parents
+	node_t* tmp = root;
+	while(tmp->father && tmp->current_work == tmp->n_moves) {
+		tmp = tmp->father;
+		tmp->current_work++;
+	}
+	
+	return root;
+}
+
+
+/* Le noeud passé en argument doit être une feuille */
+void manage_result(result_t* result, node_t* node) {
+	
+	node_t* father = node->father;
+	int i = int(node - father->sons);
+	
+	int child_score = -result->score;
+	
+	if ( child_score > father->result->score ) {
+		father->result->score = child_score;
+		father->result->best_move = father->moves[i];
+		
+			father->result->pv_length = result->pv_length + 1;
+			for(int j = 0; j < result->pv_length; j++)
+				father->result->PV[j+1] = result->PV[j];
+			father->result->PV[0] = father->moves[i];
+	}
+
+	father->result_nb++;
+	if(father->result_nb==father->n_moves) { // si tous les fils ont été traités
+		if(father->father) manage_result(&father->result, father);
+	}
+	
 }
 
 void evaluate(tree_t * T, result_t *result)
@@ -140,7 +237,8 @@ void evaluate(tree_t * T, result_t *result)
 		  tt_store(T, result);
 }
 
-void master_evaluate(tree_t * T, result_t *result)
+// a changer
+void master_evaluate(node_t* root)
 {
 	/*  Parametres MPI */
 	MPI_Status		status;
@@ -148,84 +246,59 @@ void master_evaluate(tree_t * T, result_t *result)
 	int np, flag;
 	int waiting_result=0;
 	
-	//create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
 	MPI_Comm_size(MPI_COMM_WORLD, &np);	// recuperation du nombre de processus
 	
-	/* tableau des coups possibles */
-	move_t moves[MAX_MOVES];	// coups legaux
-	int current_work;			// index i du prochain moves[i] a evaluer
-	int n_moves;				// nombre de coups legaux
-	
-	/* tableau des resultats */
-	result_t* result_table;			// tableau de resultats pour chaque move
-	int result_nb;		// number of results received in result_table
-	int current_result;	// the index of the next result to analyse 
-						// in result_table
-						
-	int* result_index;	// result_index[i] est l'index j du coup moves[j]
-						// correspondant au resultat result_table[i]
-						
-	/* tableau des taches donnees */
-	int* slave_work;	// slave_work[i] est l'index j du coup moves[j] sur
-						// lequel l'esclave de rank i travaille 
+	node_t** slave_work = (node_t**)malloc( np*sizeof(node_t*) );
+	result_t result;
 	
 	/* Initialise les valeurs de result et incremente node_searched */
 	node_searched++;
-	result->score = -MAX_SCORE - 1;
-	result->pv_length = 0;
+	root->result.score = -MAX_SCORE - 1;
+	root->result.pv_length = 0;
+	/*result->score = -MAX_SCORE - 1;
+	result->pv_length = 0;*/
 	
-	if (test_draw_or_victory(T, result)) {
+	if (test_draw_or_victory(root->tree, root->result)) {
 		broadcast_end(np);
 		return;
 	}
 	
-	n_moves = generate_legal_moves(T, &moves[0]);
-	printf("[ROOT] n_moves: %d\n", n_moves);
+	/* Generation de l'arbre de controle */
+	generate_control_tree(&root, 0);
 	
 	/* absence de coups légaux : pat ou mat */
-	if (n_moves == 0) {
+	if (root.n_moves == 0) {
 		result->score = check(T) ? -MAX_SCORE : CERTAIN_DRAW;
 		broadcast_end(np);
 		return;
 	}
 	
-	/* allocations et initialisations des tableaux et index */
-	result_table = (result_t*)malloc(n_moves*sizeof(result_t));
-	result_index = (int*)malloc( n_moves*sizeof(int) );
-	slave_work = (int*)malloc( np*sizeof(int) );
-	current_work = current_result = result_nb = 0;
-	
 	if (ALPHA_BETA_PRUNING)
 		  sort_moves(T, n_moves, moves);
 
 	for(int i=1; i<np; i++) {
-		
-		if( current_work < n_moves ) {	// Si il reste une tache a accomplir
-			tree_t child;
-			play_move(T, moves[current_work], &child);
-			MPI_Send( &child, 1, MPI_INT, i, TAG_TASK, MPI_COMM_WORLD);
-			slave_work[i] = current_work++;
-			printf("[ROOT] envoi du move %d à [%d]\n", slave_work[i], i);
+		node_t* task = next_task(root);
+		if( task ) {	// Si il reste une tache a accomplir
+			MPI_Send( task->tree, 1, MPI_TREE_T, i, TAG_TASK, MPI_COMM_WORLD);
+			slave_work[i] = task;
+			printf("[ROOT] envoi d'une tache à [%d]\n", i);
 		}
 		else {
-			int buf = BAD_MOVE;
-			MPI_Send( &buf, 1, MPI_INT, i, TAG_END, MPI_COMM_WORLD);
+			tree_t buf;
+			MPI_Send( &buf, 1, MPI_TREE_T, i, TAG_END, MPI_COMM_WORLD);
 			printf("[ROOT] envoi de fin à [%d]\n", i);
 		}
+		
 	}
+	
+	// Premier appel de réception
+	MPI_Recv( result_table+result_nb, 1, MPI_RESULT_T, MPI_ANY_SOURCE, TAG_RESULT, MPI_COMM_WORLD);
 	
 	// tant qu'il y a des taches à accomplir OU que tout n'as pas été analysé 
 	// OU que tout n'as pas été reçu
 	while( (current_work < n_moves)	|| (current_result<result_nb)
 									|| (result_nb<n_moves) ) {
-		
-		// Si on attends encore des résultats, reception
-		if( !waiting_result && (result_nb<n_moves) ) {
-			MPI_Irecv( result_table+result_nb, 1, MPI_RESULT_T, MPI_ANY_SOURCE, TAG_RESULT, MPI_COMM_WORLD, &req);
-			printf("[ROOT] attente de reception\n");
-			waiting_result=1;
-			flag = 0;
-		}
+	
 		
 		MPI_Test(&req, &flag, &status);
 		
@@ -239,18 +312,23 @@ void master_evaluate(tree_t * T, result_t *result)
 			if( current_work < n_moves) {
 				tree_t child;
 				play_move(T, moves[current_work], &child);
-				MPI_Send( moves+current_work, 1, MPI_INT, status.MPI_SOURCE, TAG_TASK, MPI_COMM_WORLD);
+				MPI_Send( moves+current_work, 1, MPI_TREE_T, status.MPI_SOURCE, TAG_TASK, MPI_COMM_WORLD);
 				slave_work[status.MPI_SOURCE] = current_work++;
 				printf("[ROOT] envoi du move %d à [%d]\n", slave_work[status.MPI_SOURCE], status.MPI_SOURCE);
 			}
 			else {
-				int buf = BAD_MOVE;
-				MPI_Send( &buf, 1, MPI_INT, status.MPI_SOURCE, TAG_END, MPI_COMM_WORLD);
+				tree_t buf;
+				MPI_Send( &buf, 1, MPI_TREE_T, status.MPI_SOURCE, TAG_END, MPI_COMM_WORLD);
 				printf("[ROOT] envoi de fin à [%d]\n", status.MPI_SOURCE);
 			}
-			MPI_Request_free(&req);
+			
+			if( result_nb<n_moves ) {
+				MPI_Irecv( result_table+result_nb, 1, MPI_RESULT_T, MPI_ANY_SOURCE, TAG_RESULT, MPI_COMM_WORLD, &req);
+			}
+			
 			flag = 0;
 			waiting_result=0;
+			
 		}
 		
 		// Si des resultats peuvent etre analyses
@@ -277,19 +355,16 @@ void master_evaluate(tree_t * T, result_t *result)
 	free(result_table);
 }
 
-
-void slave_evaluate(tree_t * T, result_t *result)
+// a changer
+void slave_evaluate()
 {
-
+	
 	/*  Parametres MPI */
-	//MPI_Datatype	MPI_RESULT_T;	// result_t function handle
 	MPI_Status		status;
-	MPI_Request		req;
 	int 			flag;
 	int 			rank;
 	
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	//create_mpi_result_t(&MPI_RESULT_T);	// creation du function handle
 	
 	/* log */
 	/*char filename[5];
@@ -297,36 +372,29 @@ void slave_evaluate(tree_t * T, result_t *result)
 	FILE * f = fopen( filename, "a");*/
 	
 	/* Parametres de calcul */
-	move_t move;			// le coup a analyser
-	
-	compute_attack_squares(T);
+	tree_t T;			// l'arbre à analyser
 		
 	// reception de la premiere tache
-	MPI_Recv( &move, 1, MPI_INT, ROOT, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	MPI_Recv( &T, 1, MPI_TREE_T, ROOT, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	//fprintf(f, "\t[%d] reception move\n",rank);
 	
 	// tant qu'il y a des taches à accomplir
 	while( status.MPI_TAG != TAG_END ) {
-		
 		result_t child_result;	// le resultat a renvoyer
 			result->score = -MAX_SCORE - 1;
 			result->pv_length = 0;
-		tree_t child;			// noeud fils
 		
-		play_move(T, move, &child);			// joue le move
-		evaluate(&child, &child_result);	// evalue recursivement la position
+		evaluate(&T, &child_result);	// evalue recursivement la position
 		
 		// envoi du resultat
 		MPI_Send( &child_result, 1, MPI_RESULT_T, ROOT, TAG_RESULT, MPI_COMM_WORLD);
 		//fprintf(f, "\t[%d] envoi du résultat\n",rank);
 		
 		// reception du move suivant à analyser
-		MPI_Recv( &move, 1, MPI_INT, ROOT, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		MPI_Recv( &T, 1, MPI_TREE_T, ROOT, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 		//fprintf(f, "\t[%d] reception move\n",rank);
 	}
 	//fprintf(f, "\t[%d] exiting slave_evaluate\n", rank);
 	//fclose(f);
-	//MPI_Type_Free(&MPI_RESULT_T);
-
 	return ;
 }
