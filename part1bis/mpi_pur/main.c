@@ -26,7 +26,7 @@ void decide(node_t* root)
 				printf("=====================================\n");
 			
 			//double time_depth = MPI_Wtime();
-			(depth>DEPTH_PAR)? master_evaluate(root):evaluate(root->tree, root->result);
+			(depth>DEPTH_PAR)? master_evaluate(root):evaluate(&root->tree, &root->result);
 			//time_depth = MPI_Wtime()-time_depth;
 
 				printf("[ROOT] depth: %d / score: %.2f / best_move : \n",root->tree.depth,0.01*root->result.score);
@@ -98,7 +98,7 @@ int main(int argc, char **argv)
 		MPI_Reduce( &node_searched, &node_tot, 1, MPI_INT, MPI_SUM, ROOT, MPI_COMM_WORLD);
 		
 		printf("\nDécision de la position: ");
-		switch(result.score * (2*root.side - 1)) {
+		switch(root.result.score * (2*root.tree.side - 1)) {
 			case MAX_SCORE: printf("blanc gagne\n"); break;
 			case CERTAIN_DRAW: printf("partie nulle\n"); break;
 			case -MAX_SCORE: printf("noir gagne\n"); break;

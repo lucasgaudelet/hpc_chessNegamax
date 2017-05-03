@@ -96,7 +96,7 @@ void generate_control_tree(node_t* root, int level){
 		compute_attack_squares(&root->tree);
 		root->n_moves = generate_legal_moves(&root->tree, root->moves);
 		if (root->n_moves == 0) {
-			root->result.score = check(root->tree) ? -MAX_SCORE : CERTAIN_DRAW;
+			root->result.score = check(&root->tree) ? -MAX_SCORE : CERTAIN_DRAW;
 			root->sons = NULL;
 			return;
 		}
@@ -106,7 +106,7 @@ void generate_control_tree(node_t* root, int level){
 		/* appel récursif sur les fils */
 		for(int i=0; i<root->n_moves; i++) {
 			root->sons[i].father = root;
-			play_move(&root->tree, root->moves[i], &root->sons[i]->tree);
+			play_move(&root->tree, root->moves[i], &root->sons[i].tree);
 			generate_control_tree( root->sons+i, level+1);
 		}
 	}
@@ -133,7 +133,7 @@ node_t* next_task(node_t* root) {
 	
 	// selection de la feuille à retourner
 	while(root->sons) {	
-			root = root->sons[current_work];
+			root = &root->sons[root->current_work];
 	}
 	
 	// incrémentation des parents
@@ -151,18 +151,18 @@ node_t* next_task(node_t* root) {
 void manage_result(result_t* result, node_t* node) {
 	
 	node_t* father = node->father;
-	int i = int(node - father->sons);
+	int i = (int)(node - father->sons);
 	
 	int child_score = -result->score;
 	
-	if ( child_score > father->result->score ) {
-		father->result->score = child_score;
-		father->result->best_move = father->moves[i];
+	if ( child_score > father->result.score ) {
+		father->result.score = child_score;
+		father->result.best_move = father->moves[i];
 		
-			father->result->pv_length = result->pv_length + 1;
+			father->result.pv_length = result->pv_length + 1;
 			for(int j = 0; j < result->pv_length; j++)
-				father->result->PV[j+1] = result->PV[j];
-			father->result->PV[0] = father->moves[i];
+				father->result.PV[j+1] = result->PV[j];
+			father->result.PV[0] = father->moves[i];
 	}
 
 	father->result_nb++;
@@ -254,28 +254,31 @@ void master_evaluate(node_t* root)
 	/* Initialise les valeurs de result et incremente node_searched */
 	node_searched++;
 	
+	// géré dans generate_control_tree
+	/*
 	if (test_draw_or_victory(root->tree, root->result)) {
 		broadcast_end(np);
 		return;
 	}
+	/*
 	
 	/* Generation de l'arbre de controle */
 	generate_control_tree(root, 0);
 	
 	
-	/* absence de coups légaux : pat ou mat */ // géré dans generate_control_tree
+	/* absence de coups légaux : pat ou mat */ 
 	/*if (root->n_moves == 0) {
 		broadcast_end(np);
 		return;
 	}*/
 	
 	if (ALPHA_BETA_PRUNING)
-		  sort_moves(T, n_moves, moves);
+		  sort_moves(&root->tree, root->n_moves, root->moves);
 
 	for(int i=1; i<np; i++) {
 		node_t* task = next_task(root);
 		if( task ) {	// Si il reste une tache a accomplir
-			MPI_Send(task->tree, 1, MPI_TREE_T, i, TAG_TASK, MPI_COMM_WORLD);
+			MPI_Send(&task->tree, 1, MPI_TREE_T, i, TAG_TASK, MPI_COMM_WORLD);
 			slave_work[i] = task;
 			printf("[ROOT] envoi d'une tache à [%d]\n", i);
 		}
@@ -295,18 +298,18 @@ void master_evaluate(node_t* root)
 	while( root->result_nb < root->n_moves ) {
 	
 		MPI_Recv(&result, 1, MPI_RESULT_T, MPI_ANY_SOURCE, TAG_RESULT, MPI_COMM_WORLD, &status);
-		manage_result( &result, slave_work[status.MPI_SOURCE];
+		manage_result( &result, slave_work[status.MPI_SOURCE]);
 		
 		node_t* task = next_task(root);
 		if( task ) {	// Si il reste une tache a accomplir
-			MPI_Send( task->tree, 1, MPI_TREE_T, i, TAG_TASK, MPI_COMM_WORLD);
-			slave_work[i] = task;
-			printf("[ROOT] envoi d'une tache à [%d]\n", i);
+			MPI_Send(&task->tree, 1, MPI_TREE_T, status.MPI_SOURCE, TAG_TASK, MPI_COMM_WORLD);
+			slave_work[status.MPI_SOURCE] = task;
+			printf("[ROOT] envoi d'une tache à [%d]\n", status.MPI_SOURCE);
 		}
 		else {
 			tree_t buf;
-			MPI_Send( &buf, 1, MPI_TREE_T, i, TAG_END, MPI_COMM_WORLD);
-			printf("[ROOT] envoi de fin à [%d]\n", i);
+			MPI_Send( &buf, 1, MPI_TREE_T, status.MPI_SOURCE, TAG_END, MPI_COMM_WORLD);
+			printf("[ROOT] envoi de fin à [%d]\n", status.MPI_SOURCE);
 		}
 	}
 	free(slave_work);
@@ -337,8 +340,8 @@ void slave_evaluate()
 	// tant qu'il y a des taches à accomplir
 	while( status.MPI_TAG != TAG_END ) {
 		result_t child_result;	// le resultat a renvoyer
-			result->score = -MAX_SCORE - 1;
-			result->pv_length = 0;
+			child_result.score = -MAX_SCORE - 1;
+			child_result.pv_length = 0;
 		
 		evaluate(&T, &child_result);	// evalue recursivement la position
 		

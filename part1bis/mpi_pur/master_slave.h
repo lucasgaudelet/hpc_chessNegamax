@@ -23,9 +23,9 @@ extern double time_tot;
 MPI_Datatype	MPI_RESULT_T;	// result_t function handle
 MPI_Datatype	MPI_TREE_T;	// tree_t function handle
 
-typedef struct {
-	node_t* father;
-	node_t* sons;
+typedef struct node_t {
+	struct node_t* father;
+	struct node_t* sons;
 	
 	tree_t tree;
 	result_t result;
@@ -47,14 +47,14 @@ void create_mpi_tree_t(MPI_Datatype* MPI_RESULT_T);
 
 
 // control tree functions
-node_t* generate_control_tree(node_t* root, tree_t* T, int level);
+void generate_control_tree(node_t* root, int level);
 void free_control_tree(node_t* root);
 node_t* next_task(node_t* root);
 void manage_result(result_t* result, node_t* node);
 
 // evaluate functions
 void evaluate(tree_t * T, result_t *result);
-void master_evaluate(tree_t * T, result_t *result);
+void master_evaluate(node_t* root);
 void slave_evaluate();
 
 // miscellaneous
