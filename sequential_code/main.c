@@ -1,10 +1,18 @@
 #include <mpi.h>
 #include "projet.h"
+#include <time.h>	
+#include <sys/time.h>
 
 /* 2017-02-23 : version 1.0 */
 
 unsigned long long int node_searched = 0;
 double time_tot=0;
+
+double get_time(){
+  struct timeval tmp_time;
+  gettimeofday(&tmp_time, NULL);
+  return tmp_time.tv_sec + (tmp_time.tv_usec * 1.0e-6L);
+}
 
 void evaluate(tree_t * T, result_t *result)
 {
@@ -68,8 +76,15 @@ void evaluate(tree_t * T, result_t *result)
 		  printf("Pruning h=%d, d=%d\n",T->height,T->depth);*/
                   break;
 		}    
-
+		
+		/*if(T->alpha < child_score) {
+		  for(int j=0; j<T->height; j++) {
+		    printf("\t");
+		  }
+		  printf("alpha = %d, h=%d, d=%d, i=%d\n",child_score, T->height, T->depth, i);
+		}*/
                 T->alpha = MAX(T->alpha, child_score);
+		
         }
 
         if (TRANSPOSITION_TABLE)
@@ -117,9 +132,9 @@ int main(int argc, char **argv)
         parse_FEN(argv[1], &root);
         print_position(&root);
         
-	double tmp = MPI_Wtime();
+	double tmp = get_time();
 	decide(&root, &result);
-	time_tot = MPI_Wtime() - tmp;
+	time_tot = get_time() - tmp;
 
 	printf("\nDécision de la position: ");
         switch(result.score * (2*root.side - 1)) {

@@ -31,7 +31,7 @@ void decide(node_t* root)
 
 				printf("[ROOT] depth: %d / score: %.2f / best_move : \n",root->tree.depth,0.01*root->result.score);
 				//printf("time: %f\n",time_depth);
-				print_pv(&root->tree, &root->result);
+				//print_pv(&root->tree, &root->result);
 			
 			if (DEFINITIVE(root->result.score)) {
 				decision_reached = 1;

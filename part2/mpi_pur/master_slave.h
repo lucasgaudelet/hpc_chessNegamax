@@ -11,11 +11,13 @@
 /* constants */
 #define TAG_TASK	0
 #define TAG_RESULT	1
-#define	TAG_END		2
+#define TAG_PRUNE	2
+#define TAG_ALPHA	3
+#define	TAG_END		4
 
 #define ROOT		0
-#define DEPTH_PAR	4
-#define LEVEL_MAX	2
+#define DEPTH_PAR	3
+#define LEVEL_MAX	1
 
 /* variables and data types*/
 extern unsigned long long int node_searched;
@@ -50,10 +52,13 @@ void create_mpi_tree_t(MPI_Datatype* MPI_RESULT_T);
 void generate_control_tree(node_t* root, int level);
 void free_control_tree(node_t* root);
 node_t* next_task(node_t* root);
-void manage_result(result_t* result, node_t* node);
+void manage_result(result_t* result, node_t** slave_work, node_t* slave);
+void prune(node_t** slave_work, node_t* node);
+void broadcast_alpha(int alpha);
 
 // evaluate functions
 void evaluate(tree_t * T, result_t *result);
+int evaluate_comm(tree_t * T, result_t *result);
 void master_evaluate(node_t* root);
 void slave_evaluate();
 

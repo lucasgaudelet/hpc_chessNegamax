@@ -12,7 +12,7 @@
  * Faire passer TRANSPOSITION_TABLE à 1 pour un véritable challenge !
  ********************************************************/
 
-#define ALPHA_BETA_PRUNING  1 
+#define ALPHA_BETA_PRUNING  0 
 #define TRANSPOSITION_TABLE 0
 
 /*******************************************************
