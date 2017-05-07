@@ -237,7 +237,7 @@ void evaluate(tree_t * T, result_t *result)
 		  tt_store(T, result);
 }
 
-// a changer
+
 void master_evaluate(node_t* root)
 {
 	/*  Parametres MPI */
@@ -265,7 +265,6 @@ void master_evaluate(node_t* root)
 	/* Generation de l'arbre de controle */
 	generate_control_tree(root, 0);
 	
-	
 	/* absence de coups légaux : pat ou mat */ 
 	/*if (root->n_moves == 0) {
 		broadcast_end(np);
@@ -280,12 +279,12 @@ void master_evaluate(node_t* root)
 		if( task ) {	// Si il reste une tache a accomplir
 			MPI_Send(&task->tree, 1, MPI_TREE_T, i, TAG_TASK, MPI_COMM_WORLD);
 			slave_work[i] = task;
-			printf("[ROOT] envoi d'une tache à [%d]\n", i);
+			//printf("[ROOT] envoi d'une tache à [%d]\n", i);
 		}
 		else {
 			tree_t buf;
 			MPI_Send(&buf, 1, MPI_TREE_T, i, TAG_END, MPI_COMM_WORLD);
-			printf("[ROOT] envoi de fin à [%d]\n", i);
+			//printf("[ROOT] envoi de fin à [%d]\n", i);
 		}
 		
 	}
@@ -304,15 +303,16 @@ void master_evaluate(node_t* root)
 		if( task ) {	// Si il reste une tache a accomplir
 			MPI_Send(&task->tree, 1, MPI_TREE_T, status.MPI_SOURCE, TAG_TASK, MPI_COMM_WORLD);
 			slave_work[status.MPI_SOURCE] = task;
-			printf("[ROOT] envoi d'une tache à [%d]\n", status.MPI_SOURCE);
+			//printf("[ROOT] envoi d'une tache à [%d]\n", status.MPI_SOURCE);
 		}
 		else {
 			tree_t buf;
 			MPI_Send( &buf, 1, MPI_TREE_T, status.MPI_SOURCE, TAG_END, MPI_COMM_WORLD);
-			printf("[ROOT] envoi de fin à [%d]\n", status.MPI_SOURCE);
+			//printf("[ROOT] envoi de fin à [%d]\n", status.MPI_SOURCE);
 		}
 	}
 	free(slave_work);
+	free_control_tree(root);
 }
 
 // a changer

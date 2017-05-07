@@ -31,16 +31,16 @@ void decide(node_t* root)
 
 				printf("[ROOT] depth: %d / score: %.2f / best_move : \n",root->tree.depth,0.01*root->result.score);
 				//printf("time: %f\n",time_depth);
-				//print_pv(T, result);
+				print_pv(&root->tree, &root->result);
 			
 			if (DEFINITIVE(root->result.score)) {
 				decision_reached = 1;
         	}
         	
 			// send decision to all slaves
-			printf("[ROOT] broadcast decision_reached\n");
+			//printf("[ROOT] broadcast decision_reached\n");
 			MPI_Bcast( &decision_reached, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
-			printf("[ROOT] decision_reached=%d\n", decision_reached);
+			//printf("[ROOT] decision_reached=%d\n", decision_reached);
 		}
 		
 		// slave
