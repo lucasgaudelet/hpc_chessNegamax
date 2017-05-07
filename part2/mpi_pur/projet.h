@@ -1,3 +1,6 @@
+#ifndef _PROJET_
+#define	_PROJET_
+
 #define _POSIX_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,7 +15,7 @@
  * Faire passer TRANSPOSITION_TABLE à 1 pour un véritable challenge !
  ********************************************************/
 
-#define ALPHA_BETA_PRUNING  1 
+#define ALPHA_BETA_PRUNING  0
 #define TRANSPOSITION_TABLE 0
 
 /*******************************************************
@@ -65,6 +68,14 @@ typedef struct {
   int pv_length;
   int PV[MAX_DEPTH];
 } result_t;
+/*
+int count 				4
+int blocklength 		[1, 1, 1, 128]
+MPI_Aint displacement	[4, 4, 4, 4]
+MPI_Datatype type		[MPI_INTEGER, MPI_INTEGER, MPI_INTEGER, MPI_INTEGER]
+MPI_Datatype newtype	[result_type]
+*/
+
 
 /********************************************
  * Fonctions auxiliaires
@@ -129,3 +140,5 @@ void free_tt();
 
 /* affiche la variation principale et la position résultante */
 void print_pv(tree_t *T, result_t *result);
+
+#endif

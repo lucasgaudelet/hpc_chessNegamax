@@ -61,8 +61,13 @@ void evaluate(tree_t * T, result_t *result)
                           result->PV[0] = moves[i];
                 }
 
-                if (ALPHA_BETA_PRUNING && child_score >= T->beta)
-                  break;    
+                if (ALPHA_BETA_PRUNING && child_score >= T->beta) {
+		  /*for(int j=0; j<T->height; j++) {
+		    printf("\t");
+		  }
+		  printf("Pruning h=%d, d=%d\n",T->height,T->depth);*/
+                  break;
+		}    
 
                 T->alpha = MAX(T->alpha, child_score);
         }
